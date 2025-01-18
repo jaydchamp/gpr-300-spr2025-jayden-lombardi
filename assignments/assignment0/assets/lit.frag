@@ -25,14 +25,18 @@ uniform vec3 _EyePos;
 //ADDED FOR AMBIENT::
 uniform vec3 _AmbientColor = vec3(0.3,0.4,0.46);
 
+//ADDED FOR MATERIAL CONTROLS:
+struct Material
+{
+	float Ka;		 //Ambient	(0-1)
+	float Kd;		 //Diffuse  (0-1)
+	float Ks;		 //Specular (0-1)
+	float Shininess; //specular highlight
+}; 
+uniform Material _Material;
+
 void main()
 {
-	//defining output of the shader
-	//Shade with 0-1 normal
-	//normal mapped object:
-	// 1.0 = alpha channel
-	//FragColor = vec4(fs_in.Normal * 0.5 + 0.5,1.0);WE ALSO SWITCHED THIS FOR::
-	//FragColor = texture(_MainTexture, fs_in.TextCoord); //interpolation function
 	//ADDED FOR DIFFUSE
 	vec3 normal = normalize(fs_in.WorldNormal);	//normalize normal bc of different screen sizes/ratios
 	vec3 toLight = -_LightDirection;
@@ -41,12 +45,13 @@ void main()
 	//ADDED FOR SPECULAR::
 	vec3 toEye = normalize(_EyePos - fs_in.WorldPosition); //direction towards player's eyes
 	vec3 h = normalize(toLight + toEye); //blinn phong uses half angle
-	float specularFactor = pow(max(dot(normal, h), 0.0), 128);
+	float specularFactor = pow(max(dot(normal, h), 0.0), _Material.Shininess);
 	//apply both specular and diffuse
-	vec3 lightColor = (diffuseFactor + specularFactor) * _LightColor;
+	//vec3 lightColor = (diffuseFactor + specularFactor) * _LightColor;
+	vec3 lightColor = (_Material.Kd * diffuseFactor + _Material.Ks * specularFactor) * _LightColor;
 
 	//ADDED FOR AMBIENT::
-	lightColor += _AmbientColor;
+	lightColor += _AmbientColor * _Material.Ka;
 
 	//amount of light diffusely reflecting off of the Surface
 	//vec3 diffuseColor = _LightColor * diffuseFactor;
