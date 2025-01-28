@@ -20,6 +20,7 @@ void framebufferSizeCallback(GLFWwindow* window, int width, int height);
 GLFWwindow* initWindow(const char* title, int width, int height);
 void drawUI();
 
+
 //Global state
 int screenWidth = 1080;
 int screenHeight = 720;
@@ -39,7 +40,6 @@ struct Material
 	float Shininess = 128;
 }material;
 
-
 struct FrameBuffer
 {
 	GLuint fbo;
@@ -48,32 +48,92 @@ struct FrameBuffer
 	GLuint depth;
 }framebuffer;
 
-void render()
+struct FullScreenQuad
+{
+	GLuint vao;
+	GLuint vbo;
+
+}fullscreen_quad;
+
+static float quad_vertices[] ={
+	// pos (x, y) texcoord (u, v)
+	-1.0f,  1.0f, 0.0f, 1.0f,
+	-1.0f, -1.0f, 0.0f, 0.0f,
+	1.0f, -1.0f, 1.0f, 0.0f,
+
+	-1.0f,  1.0f, 0.0f, 1.0f,
+	1.0f, -1.0f, 1.0f, 0.0f,
+	1.0f,  1.0f, 1.0f, 1.0f,
+};
+
+void render(ew::Shader shader, ew::Model model)
 {
 	//DO THIS SHIT JAYDEN
+	//send a shader and a model to this function
+	//pass in the current shader and model to be rendered, WITHIN the loop
+
+	shader.use();	//hides some shader code in here
+	shader.setInt("_MainTexture", 0);
+	shader.setVec3("_EyePos", camera.position);
+
+	//added for material struct:
+	shader.setFloat("_Material.Ka", material.Ka);
+	shader.setFloat("_Material.Kd", material.Kd);
+	shader.setFloat("_Material.Ks", material.Ks);
+	shader.setFloat("_Material.Shininess", material.Shininess);
+
+	shader.setMat4("_Model", glm::mat4(1.0f));
+	shader.setMat4("_ViewProjection", camera.projectionMatrix() * camera.viewMatrix());
+
+	//combine translation, rotation, and scale into 4x4 matrix
+	shader.setMat4("_Model", monkeyTransform.modelMatrix());
+
+	model.draw();	//draw monkey model using current shader
+}
+
+void initCam(ew::Camera)
+{
+	camera.position = glm::vec3(0.0f, 0.0f, 5.0f);
+	camera.target = glm::vec3(0.0f, 0.0f, 0.0f);	//look at center of scene
+	camera.aspectRatio = (float)screenWidth / screenHeight;
+	camera.fov = 60.0f;								//vertical field of view in degrees
+}
+
+void FrameBuffer()
+{
+	//all the gl stuff in here??
 }
 
 int main() {
 	GLFWwindow* window = initWindow("Assignment 0", screenWidth, screenHeight);
 
-	ew::Shader newShader = ew::Shader("assets/lit.vert", "assets/lit.frag");	//our shader
+	ew::Shader newShader = ew::Shader("assets/lit.vert", "assets/lit.frag");	
+	ew::Shader fullScreenShader = ew::Shader("assets/fullscreen.vert", "assets/fullscreen.frag");	
+	ew::Shader inverseShader = ew::Shader("assets/inverse.vert", "assets/inverse.frag");	
+	ew::Shader greyScaleShader = ew::Shader("assets/fullscreen.vert", "assets/grey.frag");	
+	ew::Shader blurShader = ew::Shader("assets/blur.vert", "assets/blur.frag");	
+
 	ew::Model monkeyModel = ew::Model("assets/suzanne.obj");					//our model
-
 	GLuint brickTexture = ew::loadTexture("assets/brick_color.jpg");
+	initCam(camera);
 
-	camera.position = glm::vec3(0.0f, 0.0f, 5.0f);
-	camera.target = glm::vec3(0.0f, 0.0f, 0.0f);	//look at center of scene
-	camera.aspectRatio = (float)screenWidth / screenHeight;
-	camera.fov = 60.0f;								//vertical field of view in degrees
+	//keep this:
+	glBindVertexArray(fullscreen_quad.vao);
+	glBindBuffer(GL_ARRAY_BUFFER, fullscreen_quad.vbo);
 
-	//pipeline definition
+	glBufferData(GL_ARRAY_BUFFER, sizeof(quad_vertices), &quad_vertices, GL_STATIC_DRAW);
 
+	glEnableVertexAttribArray(0);
+	glVertexAttribPointer(0, 2, GL_FLOAT,GL_FALSE, 4 * sizeof(float), (void*)0);
+	glEnableVertexAttribArray(1);
+	glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 4 * sizeof(float), (void*)(sizeof(float) *2));
 
-	glfwSetFramebufferSizeCallback(window, framebufferSizeCallback);
-
+	glBindVertexArray(0);
 	//init frame buffer
 	glGenFramebuffers(1, &framebuffer.fbo);
 	glBindFramebuffer(GL_FRAMEBUFFER, framebuffer.fbo);
+
+	glfwSetFramebufferSizeCallback(window, framebufferSizeCallback);
 
 	glGenTextures(1, &framebuffer.color0);
 	glBindTexture(GL_TEXTURE_2D, framebuffer.color0);
@@ -82,18 +142,20 @@ int main() {
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
 	glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, framebuffer.color0, 0);
 
-	//check completeness
-	if (glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE)
+	GLenum fboStatus = glCheckFramebufferStatus(GL_FRAMEBUFFER);
+	if (fboStatus != GL_FRAMEBUFFER_COMPLETE)
 	{
-		printf("Framebuffer incomplete:");
+		printf("Framebuffer incomplete: %d", fboStatus);
 		return 0;
 	}
+
 	//all rendering done now is to the framebuffer
-
-	//glBindFramebuffer(GL_FRAMEBUFFER, 0);
-
+	glBindFramebuffer(GL_FRAMEBUFFER, 0);
 
 	while (!glfwWindowShouldClose(window)) {
+
+		glBindFramebuffer(GL_FRAMEBUFFER, framebuffer.fbo);
+
 		glEnable(GL_CULL_FACE);
 		glCullFace(GL_BACK);
 		glEnable(GL_DEPTH_TEST);
@@ -105,47 +167,37 @@ int main() {
 		deltaTime = time - prevFrameTime;
 		prevFrameTime = time;
 
-		//RENDER
+		//keep
+		glDisable(GL_DEPTH_TEST);
 		glClearColor(0.6f,0.8f,0.92f,1.0f);
-		//clearing the color, clearing the depth buffer (how far something is)
 		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
 		cameraController.move(window, &camera, deltaTime);
 
-		////bind brick texture to texture unit 0
-		//glActiveTexture(GL_TEXTURE0);
-		////bind my texture to the currently active texture
-		//glBindTexture(GL_TEXTURE_2D, brickTexture);
-
 		//above can be switched for:
+		render(inverseShader, monkeyModel);
 		glBindTextureUnit(0, brickTexture);
-
-		newShader.use();	//hides some shader code in here
-		//make "_MainTex" sampler2D sample from the 2D texture bound to unit 0
-		newShader.setInt("_MainTexture", 0);
-		newShader.setVec3("_EyePos", camera.position);
-
-		//added for material struct:
-		newShader.setFloat("_Material.Ka", material.Ka);
-		newShader.setFloat("_Material.Kd", material.Kd);
-		newShader.setFloat("_Material.Ks", material.Ks);
-		newShader.setFloat("_Material.Shininess", material.Shininess);
-
-		newShader.setMat4("_Model", glm::mat4(1.0f));
-		newShader.setMat4("_ViewProjection", camera.projectionMatrix() * camera.viewMatrix());
 
 		monkeyTransform.rotation = glm::rotate(monkeyTransform.rotation, deltaTime, glm::vec3(0.0f, 1.0f, 0.0f));
 
-		//combine translation, rotation, and scale into 4x4 matrix
-		newShader.setMat4("_Model", monkeyTransform.modelMatrix());
+		//render(blinnphong, monkeyModel); keep
+		fullScreenShader.use();
+		fullScreenShader.setInt("texture0", 0);
+		glBindVertexArray(fullscreen_quad.vao);
+		glActiveTexture(GL_TEXTURE0);
+		glBindTexture(GL_TEXTURE_2D, framebuffer.color0);
+		glDrawArrays(GL_TRIANGLES, 0, 6);
 
-		monkeyModel.draw();	//draw monkey model using current shader
+		//unbind vao
+		glBindVertexArray(0);
 
-		//draw UI
+		//draw UI keep
 		drawUI();
 
-		//swap buffers (swap wahatever on screen, and whatever we write to)
+		//swap buffers (swap wahatever on screen, and whatever we write to) keep
 		glfwSwapBuffers(window);
+
+		glBindFramebuffer(GL_FRAMEBUFFER, 0);
 	}
 	printf("Shutting down...");
 }
@@ -166,6 +218,9 @@ void drawUI() {
 	ImGui_ImplGlfw_NewFrame();
 	ImGui_ImplOpenGL3_NewFrame();
 	ImGui::NewFrame();
+
+	//IMGUI debugging? not in the render loop?
+	ImGui::Image((ImTextureID)(intptr_t)framebuffer.color0, ImVec2(800, 600)); 
 
 	ImGui::Begin("Settings");
 	if (ImGui::Button("Reset Camera"))
