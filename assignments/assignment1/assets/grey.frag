@@ -8,12 +8,11 @@ uniform sampler2D texture0;
 
 void main()
 {
-	vec3 albedo = texture(1.0 - texture0, vs_texcoord).rgb;
-	float average = (albedo.r + albedo.g + albedo.b) / 3;
-	FragColor = vec4(average, average, average, 1.0); //rgba
+	vec3 albedo = texture(texture0, vs_texcoord).rgb;
 
+	//convert color to greyscale with luminance
+	//float average = ((0.2126 * albedo.r) + (0.7512 * albedo.g) + (0.0722 * albedo.b)) / 3;
+	float average = dot(albedo, vec3(0.2126, 0.7512, 0.0722));
 
-	(0.2126 * albedo.r)
-	(0.7512 * albedo.g)
-	(0.0722 * albedo.b)
+	FragColor = vec4(average, average, average, 1.0); //rgba	
 }

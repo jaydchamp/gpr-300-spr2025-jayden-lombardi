@@ -3,7 +3,6 @@
 //what is coming out of the shader
 out vec4 FragColor; //The color of this fragment
 
-//in vec3 Normal; //Interpolated of this fragment  WE SWITHCED THIS FOR::
 in Surface
 {
 	//vec3 Normal; ADDED FOR DIFFUSE
@@ -46,16 +45,9 @@ void main()
 	vec3 toEye = normalize(_EyePos - fs_in.WorldPosition); //direction towards player's eyes
 	vec3 h = normalize(toLight + toEye); //blinn phong uses half angle
 	float specularFactor = pow(max(dot(normal, h), 0.0), _Material.Shininess);
-	//apply both specular and diffuse
-	//vec3 lightColor = (diffuseFactor + specularFactor) * _LightColor;
 	vec3 lightColor = (_Material.Kd * diffuseFactor + _Material.Ks * specularFactor) * _LightColor;
 
-	//ADDED FOR AMBIENT::
 	lightColor += _AmbientColor * _Material.Ka;
-
-	//amount of light diffusely reflecting off of the Surface
-	//vec3 diffuseColor = _LightColor * diffuseFactor;
-
 	vec3 objectColor = texture(_MainTexture, fs_in.TextCoord).rgb;
 	FragColor = vec4(objectColor * /*diffuseColor*/ lightColor, 1.0);
 }

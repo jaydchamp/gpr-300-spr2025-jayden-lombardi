@@ -1,9 +1,7 @@
 #include <stdio.h>
 #include <math.h>
 
-//JAYDEN YOU ARE ON "Material Controls"
 #include <ew/external/glad.h>
-
 #include <GLFW/glfw3.h>
 #include <imgui.h>
 #include <imgui_impl_glfw.h>
@@ -16,18 +14,30 @@
 #include <ew/cameraController.h>
 #include <ew/texture.h>
 
+//FrameBuffer Struct
+struct FrameBuffer
+{
+	GLuint fbo;
+	GLuint color0;
+	GLuint color1;
+	GLuint depth;
+}framebuffer;
+
+//Function Declarations
 void framebufferSizeCallback(GLFWwindow* window, int width, int height);
 GLFWwindow* initWindow(const char* title, int width, int height);
 void drawUI();
+void render(ew::Shader shader, ew::Model model);
+void initCam(ew::Camera& camera);
+void resetCamera(ew::Camera* camera, ew::CameraController* controller);
+void CreateFrameBuffer(FrameBuffer& framebuff, GLFWwindow* window);
 
-
-//Global state
+//Global Variables
 int screenWidth = 1080;
 int screenHeight = 720;
 float prevFrameTime;
 float deltaTime;
-
-ew::Camera camera;	//our camera
+ew::Camera camera;
 ew::CameraController cameraController;
 ew::Transform monkeyTransform;
 
@@ -39,14 +49,6 @@ struct Material
 	float Ks = 0.5;
 	float Shininess = 128;
 }material;
-
-struct FrameBuffer
-{
-	GLuint fbo;
-	GLuint color0;
-	GLuint color1;
-	GLuint depth;
-}framebuffer;
 
 struct FullScreenQuad
 {
@@ -68,10 +70,6 @@ static float quad_vertices[] ={
 
 void render(ew::Shader shader, ew::Model model)
 {
-	//DO THIS SHIT JAYDEN
-	//send a shader and a model to this function
-	//pass in the current shader and model to be rendered, WITHIN the loop
-
 	shader.use();	//hides some shader code in here
 	shader.setInt("_MainTexture", 0);
 	shader.setVec3("_EyePos", camera.position);
@@ -91,7 +89,7 @@ void render(ew::Shader shader, ew::Model model)
 	model.draw();	//draw monkey model using current shader
 }
 
-void initCam(ew::Camera)
+void initCam(ew::Camera& camera)
 {
 	camera.position = glm::vec3(0.0f, 0.0f, 5.0f);
 	camera.target = glm::vec3(0.0f, 0.0f, 0.0f);	//look at center of scene
@@ -99,22 +97,43 @@ void initCam(ew::Camera)
 	camera.fov = 60.0f;								//vertical field of view in degrees
 }
 
-void FrameBuffer()
+void CreateFrameBuffer(FrameBuffer& framebuff, GLFWwindow* window)
 {
-	//all the gl stuff in here??
+	glGenFramebuffers(1, &framebuff.fbo);
+	glBindFramebuffer(GL_FRAMEBUFFER, framebuff.fbo);
+
+	glfwSetFramebufferSizeCallback(window, framebufferSizeCallback);
+
+	//create color attachment texture
+	glGenTextures(1, &framebuff.color0);
+	glBindTexture(GL_TEXTURE_2D, framebuff.color0);
+	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, 800, 600, 0, GL_RGB, GL_UNSIGNED_BYTE, nullptr);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+	glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, framebuff.color0, 0);
+
+	GLenum fboStatus = glCheckFramebufferStatus(GL_FRAMEBUFFER);
+	if (fboStatus != GL_FRAMEBUFFER_COMPLETE)
+	{
+		printf("Framebuffer incomplete: %d", fboStatus);
+	}
+
+	//all rendering done now is to the framebuffer
+	glBindFramebuffer(GL_FRAMEBUFFER, 0);
 }
 
 int main() {
 	GLFWwindow* window = initWindow("Assignment 0", screenWidth, screenHeight);
 
 	ew::Shader newShader = ew::Shader("assets/lit.vert", "assets/lit.frag");	
-	ew::Shader fullScreenShader = ew::Shader("assets/fullscreen.vert", "assets/fullscreen.frag");	
-	ew::Shader inverseShader = ew::Shader("assets/inverse.vert", "assets/inverse.frag");	
-	ew::Shader greyScaleShader = ew::Shader("assets/fullscreen.vert", "assets/grey.frag");	
-	ew::Shader blurShader = ew::Shader("assets/blur.vert", "assets/blur.frag");	
+	//ew::Shader fullScreenShader = ew::Shader("assets/fullscreen.vert", "assets/fullscreen.frag");	
+	//ew::Shader inverseShader = ew::Shader("assets/inverse.vert", "assets/inverse.frag");	
+	//ew::Shader greyScaleShader = ew::Shader("assets/grey.vert", "assets/grey.frag");	
+	//ew::Shader blurShader = ew::Shader("assets/blur.vert", "assets/blur.frag");	
 
-	ew::Model monkeyModel = ew::Model("assets/suzanne.obj");					//our model
+	ew::Model monkeyModel = ew::Model("assets/suzanne.obj");				
 	GLuint brickTexture = ew::loadTexture("assets/brick_color.jpg");
+
 	initCam(camera);
 
 	//keep this:
@@ -129,28 +148,9 @@ int main() {
 	glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 4 * sizeof(float), (void*)(sizeof(float) *2));
 
 	glBindVertexArray(0);
+
 	//init frame buffer
-	glGenFramebuffers(1, &framebuffer.fbo);
-	glBindFramebuffer(GL_FRAMEBUFFER, framebuffer.fbo);
-
-	glfwSetFramebufferSizeCallback(window, framebufferSizeCallback);
-
-	glGenTextures(1, &framebuffer.color0);
-	glBindTexture(GL_TEXTURE_2D, framebuffer.color0);
-	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, 800, 600, 0, GL_RGB, GL_UNSIGNED_BYTE, nullptr);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-	glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, framebuffer.color0, 0);
-
-	GLenum fboStatus = glCheckFramebufferStatus(GL_FRAMEBUFFER);
-	if (fboStatus != GL_FRAMEBUFFER_COMPLETE)
-	{
-		printf("Framebuffer incomplete: %d", fboStatus);
-		return 0;
-	}
-
-	//all rendering done now is to the framebuffer
-	glBindFramebuffer(GL_FRAMEBUFFER, 0);
+	CreateFrameBuffer(framebuffer, window);
 
 	while (!glfwWindowShouldClose(window)) {
 
@@ -174,15 +174,14 @@ int main() {
 
 		cameraController.move(window, &camera, deltaTime);
 
-		//above can be switched for:
-		render(inverseShader, monkeyModel);
+		render(newShader, monkeyModel);
 		glBindTextureUnit(0, brickTexture);
 
 		monkeyTransform.rotation = glm::rotate(monkeyTransform.rotation, deltaTime, glm::vec3(0.0f, 1.0f, 0.0f));
 
-		//render(blinnphong, monkeyModel); keep
-		fullScreenShader.use();
-		fullScreenShader.setInt("texture0", 0);
+		newShader.use();
+		newShader.setInt("texture0", 0);
+
 		glBindVertexArray(fullscreen_quad.vao);
 		glActiveTexture(GL_TEXTURE0);
 		glBindTexture(GL_TEXTURE_2D, framebuffer.color0);
@@ -196,7 +195,6 @@ int main() {
 
 		//swap buffers (swap wahatever on screen, and whatever we write to) keep
 		glfwSwapBuffers(window);
-
 		glBindFramebuffer(GL_FRAMEBUFFER, 0);
 	}
 	printf("Shutting down...");
@@ -285,4 +283,3 @@ GLFWwindow* initWindow(const char* title, int width, int height) {
 
 	return window;
 }
-
