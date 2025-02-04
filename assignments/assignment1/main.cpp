@@ -120,8 +120,8 @@ void post_process(ew::Shader& shader)
 
 		glActiveTexture(GL_TEXTURE0);
 		glBindTexture(GL_TEXTURE_2D, framebuffer.color0);
-
 		glBindTextureUnit(0, framebuffer.color0);
+
 		glDrawArrays(GL_TRIANGLES, 0, 6);
 	}
 	glBindVertexArray(0);
