@@ -2,6 +2,7 @@
 
 //what is coming out of the shader
 out vec4 FragColor; //The color of this fragment
+out vec4 FragBright; //The brightness of this fragment
 
 in Surface
 {
@@ -50,4 +51,15 @@ void main()
 	lightColor += _AmbientColor * _Material.Ka;
 	vec3 objectColor = texture(_MainTexture, fs_in.TextCoord).rgb;
 	FragColor = vec4(objectColor * /*diffuseColor*/ lightColor, 1.0);
+
+	//check brightness
+	float brightness = dot(FragColor.rgb, vec3(0.2126, 0.7152, 0.0720));
+	if(brightness > 1.0)
+	{
+		FragBright = FragColor;
+	}
+	else
+	{
+		FragBright = vec4(0,0,0,0);
+	}
 }
