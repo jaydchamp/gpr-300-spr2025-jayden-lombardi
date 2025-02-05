@@ -40,9 +40,6 @@ float deltaTime;
 ew::Camera camera;
 ew::CameraController cameraController;
 ew::Transform monkeyTransform;
-const char* shaders[] = { "Box Blur", "Gaussian Blur", "Sharpen",
-						 "Edge Detection", "HDR Mapping", "Gamma Correction",
-						 "Chromatic", "Vignette", "Lens Distort", "Film Grain", "Fog" };
 
 //for material controls:
 struct Material 
@@ -70,19 +67,33 @@ static float quad_vertices[] ={
 	1.0f,  1.0f, 1.0f, 1.0f,
 };
 
+static int effect_index = 0;
+static std::vector<std::string> post_processing_effects = {
+	"None",
+	"Fullscreen",
+	"Chromatic",
+	"Blur",
+	"Greyscale",
+	"Inverse",
+	"HDR",
+	"Vignette",
+	"Gamma",
+	"Fog",
+	"Bloom",
+};
+
 void render(ew::Shader shader, ew::Model model, GLuint texture)
 {
 	glBindFramebuffer(GL_FRAMEBUFFER, framebuffer.fbo);
 	{
-		glEnable(GL_CULL_FACE);
-		glCullFace(GL_BACK);
-
-		glEnable(GL_DEPTH_TEST);
-
 		glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
 		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
-		glBindTextureUnit(0, texture);
+		glEnable(GL_CULL_FACE);
+		glCullFace(GL_BACK);
+		glEnable(GL_DEPTH_TEST);
+
+		//glBindTextureUnit(0, texture);
 
 		shader.use();
 		shader.setInt("_MainTexture", 0);
@@ -98,6 +109,10 @@ void render(ew::Shader shader, ew::Model model, GLuint texture)
 		shader.setMat4("_ViewProjection", camera.projectionMatrix() * camera.viewMatrix());
 		shader.setMat4("_Model", monkeyTransform.modelMatrix());
 		//draw monkey model using current shader
+
+		glActiveTexture(GL_TEXTURE0);
+		glBindTexture(GL_TEXTURE_2D, texture);
+
 		model.draw();
 
 		glBindTextureUnit(0, 0);
@@ -109,7 +124,6 @@ void post_process(ew::Shader& shader)
 {
 	shader.use();
 	shader.setInt("texture0", 0);
-	//case switch statement here
 
 	glBindVertexArray(fullscreen_quad.vao);
 	{
@@ -157,7 +171,6 @@ void CreateFrameBuffer(FrameBuffer& framebuff, GLFWwindow* window)
 	glGenFramebuffers(1, &framebuff.fbo);
 	glBindFramebuffer(GL_FRAMEBUFFER, framebuff.fbo);
 	{
-		glfwSetFramebufferSizeCallback(window, framebufferSizeCallback);
 
 		//create color attachment texture
 		glGenTextures(1, &framebuff.color0);
@@ -188,17 +201,32 @@ void CreateFrameBuffer(FrameBuffer& framebuff, GLFWwindow* window)
 int main() {
 	//define shader, model, and texture
 	GLFWwindow* window = initWindow("Assignment 1", screenWidth, screenHeight);
-	ew::Shader newShader = ew::Shader("assets/lit.vert", "assets/lit.frag");
-	ew::Shader noPost = ew::Shader("assets/fullscreen.vert", "assets/fullscreen.frag");
-	ew::Model monkeyModel = ew::Model("assets/suzanne.obj");		
+	glfwSetFramebufferSizeCallback(window, framebufferSizeCallback);
 	GLuint brickTexture = ew::loadTexture("assets/brick_color.jpg");
+	ew::Model monkeyModel = ew::Model("assets/suzanne.obj");
+
+	//shaders
+		ew::Shader litShader = ew::Shader("assets/lit.vert", "assets/lit.frag");
+		ew::Shader fullscreenShader = ew::Shader("assets/fullscreen.vert", "assets/fullscreen.frag");
+		ew::Shader chromaticShader = ew::Shader("assets/chromatic.vert", "assets/chromatic.frag");
+		ew::Shader blurShader = ew::Shader("assets/blur.vert", "assets/blur.frag");
+		ew::Shader grayShader = ew::Shader("assets/grey.vert", "assets/grey.frag");
+		ew::Shader inverseShader = ew::Shader("assets/inverse.vert", "assets/inverse.frag");
+		ew::Shader hdrShader = ew::Shader("assets/HDR.vert", "assets/HDR.frag"); 
+		ew::Shader vignetteShader = ew::Shader("assets/Vignette.vert", "assets/Vignette.frag");
+		ew::Shader gammaShader = ew::Shader("assets/Gamma.vert", "assets/Gamma.frag");
+		ew::Shader foggyShader = ew::Shader("assets/fog.vert", "assets/fog.frag");
+		ew::Shader bloomShader = ew::Shader("assets/bloom.vert", "assets/bloom.frag");
+		//ew::Shader distortShader = ew::Shader("assets/distort.vert", "assets/distort.frag");
 
 	//init camera
 	initCam(camera);
 
+	//init fullscreen quad
+	CreateFullScreenQuad();
+
 	//init frame buffer
 	CreateFrameBuffer(framebuffer, window);
-	CreateFullScreenQuad();
 
 	while (!glfwWindowShouldClose(window)) 
 	{
@@ -209,8 +237,45 @@ int main() {
 		cameraController.move(window, &camera, deltaTime);
 		monkeyTransform.rotation = glm::rotate(monkeyTransform.rotation, deltaTime, glm::vec3(0.0f, 1.0f, 0.0f));
 
-		render(newShader, monkeyModel, brickTexture);
-		post_process(noPost);
+		render(fullscreenShader, monkeyModel, brickTexture);
+
+		switch (effect_index)
+		{
+		case 1:
+			post_process(fullscreenShader);
+			break;
+		case 2:
+			post_process(chromaticShader);
+			break;
+		case 3:
+			post_process(blurShader);
+			break;
+		case 4:
+			post_process(grayShader);
+			break;
+		case 5:
+			post_process(inverseShader);
+			break;
+		case 6:
+			post_process(hdrShader);
+			break;
+		case 7:
+			post_process(vignetteShader);
+			break;
+		case 8:
+			post_process(gammaShader);
+			break;
+		case 9:
+			post_process(foggyShader);
+			break;
+		case 10:
+			post_process(bloomShader);
+			break;
+
+		default:
+			post_process(litShader);
+			break;
+		}
 
 		//draw UI keep
 		drawUI();
@@ -253,9 +318,22 @@ void drawUI()
 		ImGui::SliderFloat("Specular K", &material.Ks, 0.0f, 1.0f);
 		ImGui::SliderFloat("Shininess", &material.Shininess, 2.0f, 1024.0f);
 	}
-
-	//ImGui::ListBox("Shaders", (int)framebuffer.color0, shaders, IM_ARRAYSIZE(shaders), 4);
-
+	if (ImGui::BeginCombo("Effect", post_processing_effects[effect_index].c_str()))
+	{
+		for (auto n = 0; n < post_processing_effects.size(); ++n)
+		{
+			auto is_selected = (post_processing_effects[effect_index] == post_processing_effects[n]);
+			if (ImGui::Selectable(post_processing_effects[n].c_str(), is_selected))
+			{
+				effect_index = n;
+			}
+			if (is_selected)
+			{
+				ImGui::SetItemDefaultFocus();
+			}
+		}
+		ImGui::EndCombo();
+	}
 	ImGui::End();
 
 	ImGui::Render();
