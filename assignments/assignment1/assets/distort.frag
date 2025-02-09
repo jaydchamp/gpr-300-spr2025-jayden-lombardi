@@ -1,44 +1,46 @@
 #version 450
 
-//what is coming out of the shader
 out vec4 FragColor;
 in vec2 vs_texcoord;
 
-uniform sampler2D texture0; 
+uniform sampler2D texture0;
+uniform vec3 radialDistortionParams;
+uniform vec2 tangentialDistortionParams;
 
-const float offset = 1.0 / 300.0;
-const float strength = 16.0;
+//radial and tangential lens distortion found:
+//https://medium.com/@vlh2604/real-time-radial-and-tangential-lens-distortion-with-opengl-a55b7493e207
 
-const vec2 offsets[9] = vec2[](
-
-	vec2(-offset, offset),
-	vec2(0.0, offset),
-	vec2(offset, offset),
-	
-	vec2(-offset, 0.0),
-	vec2(0.0, 0.0),
-	vec2(offset, 0.0),
-
-	vec2(-offset, -offset),
-	vec2(0.0, -offset),
-	vec2(offset, -offset)
-);
-
-const float kernel[9] = float[](
-	1.0, 1.0, 1.0,
-	1.0, 1.0, 1.0,
-	1.0, 1.0, 1.0
-);
-
-void main()
+vec2 RadialDistortion(vec2 coord, float k1, float k2, float k3) 
 {
-	vec3 avg = vec3(0.0);
+    float r = length(coord);
+    float distortionFactor = 1.0 + k1 * pow(r, 2) + k2 * pow(r, 4) + k3 * pow(r, 6);
 
-	for (int i = 0; i < 9; i++)
-	{
-		vec3 local = texture(texture0, vs_texcoord + offsets[i]).rgb;
-		avg += local * (kernel[i] / strength);
-	}
+    return distortionFactor * coord;
+}
 
-	FragColor = vec4(avg, 1.0); 
+vec2 TangentialDistortion(vec2 coord, float p1, float p2) 
+{
+    float x = coord.x;
+    float y = coord.y;
+
+    float r2 = x * x + y * y;
+
+    float dx = 2.0 * p1 * x * y + p2 * (r2 + 2.0 * x * x);
+    float dy = p1 * (r2 + 2.0 * y * y) + 2.0 * p2 * x * y;
+
+    return vec2(dx, dy);
+}
+
+
+void main() {
+    vec2 coords = vs_texcoord * 2.0 - 1.0;
+
+    vec2 radialDistortionCoords = RadialDistortion(coords, radialDistortionParams.x, radialDistortionParams.y, radialDistortionParams.z);
+    vec2 tangentialDistortionCoords = TangentialDistortion(coords, tangentialDistortionParams.x, tangentialDistortionParams.y);
+
+    vec2 distortedCoord = radialDistortionCoords + tangentialDistortionCoords;
+
+    distortedCoord = (distortedCoord + 1.0) / 2.0;
+
+    FragColor = texture(texture0, distortedCoord);
 }

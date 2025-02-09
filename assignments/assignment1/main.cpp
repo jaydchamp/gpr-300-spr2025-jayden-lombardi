@@ -27,18 +27,21 @@ struct FrameBuffer
 void framebufferSizeCallback(GLFWwindow* window, int width, int height);
 GLFWwindow* initWindow(const char* title, int width, int height);
 void drawUI();
-void render(ew::Shader shader, ew::Model model, GLuint texture);
-void initCam(ew::Camera& camera);
-void resetCamera(ew::Camera* camera, ew::CameraController* controller);
-void CreateFrameBuffer(FrameBuffer& framebuff, GLFWwindow* window);
 
 //Global Variables
 int screenWidth = 1080;
 int screenHeight = 720;
-float noiseStrength = 2.0f;
-float exposeHDR = 1.0f;
 float prevFrameTime;
 float deltaTime;
+
+float boxBlurStrength = 9.0f;
+float gaussBlurStrength = 16.0f;
+float noiseStrength = 2.0f;
+float exposeHDR = 1.0f;
+float vigStrength = 3.0f;
+glm::vec3 radialDistort = glm::vec3(0.2, 0.2, 0.2);
+glm::vec2 tanDistort = glm::vec2(0.2, 0.2);
+
 ew::Camera camera;
 ew::CameraController cameraController;
 ew::Transform monkeyTransform;
@@ -75,13 +78,16 @@ static std::vector<std::string> post_processing_effects = {
 	"Fullscreen",
 	"Chromatic",
 	"Box Blur",
+	"Gaussian Blur",
+	"Edge Detection",
 	"Sharpen",
 	"Grain",		
 	"Greyscale",
 	"Inverse",
 	"HDR",			
 	"Vignette",
-	"Gamma",		
+	"Gamma",
+	"Lens Distortion",
 };
 
 void render(ew::Shader shader, ew::Model model, GLuint texture)
@@ -127,10 +133,20 @@ void post_process(ew::Shader& shader)
 	shader.use();
 	shader.setInt("texture0", 0);
 
-	//setting HDR uniform
-	shader.setFloat("_exposure", exposeHDR);
-	//setting Grain Uniform
+	//box blur strength
+	shader.setFloat("strength", boxBlurStrength);
+	//gaussian blur strength
+	shader.setFloat("strength", gaussBlurStrength);
+	//Grain noise strength
 	shader.setFloat("noiseStrength", noiseStrength);
+	//HDR exposure
+	shader.setFloat("_exposure", exposeHDR);
+	//vignette strength
+	shader.setFloat("vigStrength", vigStrength);
+	//radial distortion
+	shader.setVec3("radialDistortionParams", radialDistort);
+	//tangential distortion
+	shader.setVec2("tangentialDistortionParams", tanDistort);
 
 	glBindVertexArray(fullscreen_quad.vao);
 	{
@@ -178,7 +194,6 @@ void CreateFrameBuffer(FrameBuffer& framebuff, GLFWwindow* window)
 	glGenFramebuffers(1, &framebuff.fbo);
 	glBindFramebuffer(GL_FRAMEBUFFER, framebuff.fbo);
 	{
-
 		//create color attachment texture
 		glGenTextures(1, &framebuff.color0);
 		glBindTexture(GL_TEXTURE_2D, framebuff.color0);
@@ -216,7 +231,9 @@ int main() {
 		ew::Shader litShader = ew::Shader("assets/lit.vert", "assets/lit.frag");
 		ew::Shader fullscreenShader = ew::Shader("assets/fullscreen.vert", "assets/fullscreen.frag");
 		ew::Shader chromaticShader = ew::Shader("assets/chromatic.vert", "assets/chromatic.frag");
-		ew::Shader blurShader = ew::Shader("assets/blur.vert", "assets/blur.frag");
+		ew::Shader boxBlurShader = ew::Shader("assets/blur.vert", "assets/blur.frag");
+		ew::Shader gaussBlurShader = ew::Shader("assets/blur.vert", "assets/gaussBlur.frag");
+		ew::Shader edgeShader = ew::Shader("assets/blur.vert", "assets/edge.frag");
 		ew::Shader sharpenShader = ew::Shader("assets/sharpen.vert", "assets/sharpen.frag");
 		ew::Shader grainShader = ew::Shader("assets/grain.vert", "assets/grain.frag");
 		ew::Shader grayShader = ew::Shader("assets/grey.vert", "assets/grey.frag");
@@ -224,6 +241,7 @@ int main() {
 		ew::Shader hdrShader = ew::Shader("assets/HDR.vert", "assets/HDR.frag"); 
 		ew::Shader vignetteShader = ew::Shader("assets/Vignette.vert", "assets/Vignette.frag");
 		ew::Shader gammaShader = ew::Shader("assets/Gamma.vert", "assets/Gamma.frag");
+		ew::Shader distortShader = ew::Shader("assets/blur.vert", "assets/distort.frag");
 
 	//init camera
 	initCam(camera);
@@ -240,10 +258,10 @@ int main() {
 		float time = (float)glfwGetTime();
 		deltaTime = time - prevFrameTime;
 		prevFrameTime = time;
-		cameraController.move(window, &camera, deltaTime);
 		monkeyTransform.rotation = glm::rotate(monkeyTransform.rotation, deltaTime, glm::vec3(0.0f, 1.0f, 0.0f));
 
 		render(fullscreenShader, monkeyModel, brickTexture);
+		cameraController.move(window, &camera, deltaTime);
 
 		switch (effect_index)
 		{
@@ -254,28 +272,37 @@ int main() {
 			post_process(chromaticShader);
 			break;
 		case 3:
-			post_process(blurShader);
+			post_process(boxBlurShader); 
 			break;
 		case 4:
-			post_process(sharpenShader);
+			post_process(gaussBlurShader);  
 			break;
 		case 5:
-			post_process(grainShader);
+			post_process(edgeShader);  
 			break;
 		case 6:
-			post_process(grayShader);
+			post_process(sharpenShader);
 			break;
 		case 7:
-			post_process(inverseShader);
+			post_process(grainShader);
 			break;
 		case 8:
-			post_process(hdrShader);
+			post_process(grayShader);
 			break;
 		case 9:
-			post_process(vignetteShader);
+			post_process(inverseShader);
 			break;
 		case 10:
+			post_process(hdrShader);
+			break;
+		case 11:
+			post_process(vignetteShader);
+			break;
+		case 12:
 			post_process(gammaShader);
+			break;
+		case 13:
+			post_process(distortShader);
 			break;
 		default:
 			post_process(litShader);
@@ -338,6 +365,33 @@ void drawUI()
 			}
 		}
 		ImGui::EndCombo();
+	}
+	switch (effect_index)
+	{	
+	case 3: //box blur
+		ImGui::SliderFloat("Box Blur Strength", &boxBlurStrength, 0.0f, 20.0f);
+		break;
+	case 4: //gauss blur
+		ImGui::SliderFloat("Gaussian Blur Strength", &gaussBlurStrength, 0.0f, 30.0f);
+		break;
+	case 7: //grain 
+		ImGui::SliderFloat("Grain Noise Strength", &noiseStrength, 0.0f, 10.0f);
+		break;
+	case 10: //hdr
+		ImGui::SliderFloat("HDR Exposure", &exposeHDR, 0.0f, 10.0f);
+		break;
+	case 11: //vignette
+		ImGui::SliderFloat("Vignette Strength", &vigStrength, 0.0f, 1.0f);
+		break;
+	case 13: //lens distortion not working??
+		ImGui::SliderFloat("Rad. Distort X", &radialDistort.x, 0.0f, 1.0f);
+		ImGui::SliderFloat("Rad. Distort Y", &radialDistort.y, 0.0f, 1.0f);
+		ImGui::SliderFloat("Rad. Distort Z", &radialDistort.z, 0.0f, 1.0f);
+		ImGui::SliderFloat("Tang. Distort X", &tanDistort.x, 0.0f, 1.0f);
+		ImGui::SliderFloat("Tang. Distort Y", &tanDistort.y, 0.0f, 1.0f);
+		break;
+	default:
+		break;
 	}
 	ImGui::End();
 
