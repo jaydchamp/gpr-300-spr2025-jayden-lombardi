@@ -7,7 +7,6 @@ in vec2 vs_texcoord;
 uniform sampler2D texture0; 
 
 const float offset = 1.0 / 300.0;
-const float strength = 16.0;
 
 const vec2 offsets[9] = vec2[](
 
@@ -25,9 +24,9 @@ const vec2 offsets[9] = vec2[](
 );
 
 const float kernel[9] = float[](
-	1.0, 1.0, 1.0,
-	1.0, 1.0, 1.0,
-	1.0, 1.0, 1.0
+	0.0, -1.0, 0.0,
+	-1.0, 5.0, -1.0,
+	0.0, -1.0, 0.0
 );
 
 void main()
@@ -37,7 +36,7 @@ void main()
 	for (int i = 0; i < 9; i++)
 	{
 		vec3 local = texture(texture0, vs_texcoord + offsets[i]).rgb;
-		avg += local * (kernel[i] / strength);
+		avg += local * kernel[i];
 	}
 
 	FragColor = vec4(avg, 1.0); 

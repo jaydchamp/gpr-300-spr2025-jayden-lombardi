@@ -4,10 +4,15 @@ in vec2 vs_texcoord;
 out vec4 FragColor;
 
 uniform sampler2D texture0; 
+uniform float vigStrength;
 
 void main()
 {
-	//invert the color
-	vec3 albedo = 1.0 - texture(texture0, vs_texcoord).rgb;
-	FragColor = vec4(albedo, 1.0);
+	vec4 color = texture(texture0, vs_texcoord);
+	float distFromCenter = distance(vs_texcoord, vec2(0.5));
+
+	float vignette = smoothstep(1.0, vigStrength, distFromCenter);
+
+	color.rgb *= vignette;	
+	FragColor = color;
 }

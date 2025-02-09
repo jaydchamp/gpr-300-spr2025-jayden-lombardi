@@ -35,6 +35,8 @@ void CreateFrameBuffer(FrameBuffer& framebuff, GLFWwindow* window);
 //Global Variables
 int screenWidth = 1080;
 int screenHeight = 720;
+float noiseStrength = 2.0f;
+float exposeHDR = 1.0f;
 float prevFrameTime;
 float deltaTime;
 ew::Camera camera;
@@ -72,14 +74,14 @@ static std::vector<std::string> post_processing_effects = {
 	"None",
 	"Fullscreen",
 	"Chromatic",
-	"Blur",
+	"Box Blur",
+	"Sharpen",
+	"Grain",		
 	"Greyscale",
 	"Inverse",
-	"HDR",
+	"HDR",			
 	"Vignette",
-	"Gamma",
-	"Fog",
-	"Bloom",
+	"Gamma",		
 };
 
 void render(ew::Shader shader, ew::Model model, GLuint texture)
@@ -124,6 +126,11 @@ void post_process(ew::Shader& shader)
 {
 	shader.use();
 	shader.setInt("texture0", 0);
+
+	//setting HDR uniform
+	shader.setFloat("_exposure", exposeHDR);
+	//setting Grain Uniform
+	shader.setFloat("noiseStrength", noiseStrength);
 
 	glBindVertexArray(fullscreen_quad.vao);
 	{
@@ -210,14 +217,13 @@ int main() {
 		ew::Shader fullscreenShader = ew::Shader("assets/fullscreen.vert", "assets/fullscreen.frag");
 		ew::Shader chromaticShader = ew::Shader("assets/chromatic.vert", "assets/chromatic.frag");
 		ew::Shader blurShader = ew::Shader("assets/blur.vert", "assets/blur.frag");
+		ew::Shader sharpenShader = ew::Shader("assets/sharpen.vert", "assets/sharpen.frag");
+		ew::Shader grainShader = ew::Shader("assets/grain.vert", "assets/grain.frag");
 		ew::Shader grayShader = ew::Shader("assets/grey.vert", "assets/grey.frag");
 		ew::Shader inverseShader = ew::Shader("assets/inverse.vert", "assets/inverse.frag");
 		ew::Shader hdrShader = ew::Shader("assets/HDR.vert", "assets/HDR.frag"); 
 		ew::Shader vignetteShader = ew::Shader("assets/Vignette.vert", "assets/Vignette.frag");
 		ew::Shader gammaShader = ew::Shader("assets/Gamma.vert", "assets/Gamma.frag");
-		ew::Shader foggyShader = ew::Shader("assets/fog.vert", "assets/fog.frag");
-		ew::Shader bloomShader = ew::Shader("assets/bloom.vert", "assets/bloom.frag");
-		//ew::Shader distortShader = ew::Shader("assets/distort.vert", "assets/distort.frag");
 
 	//init camera
 	initCam(camera);
@@ -251,27 +257,26 @@ int main() {
 			post_process(blurShader);
 			break;
 		case 4:
-			post_process(grayShader);
+			post_process(sharpenShader);
 			break;
 		case 5:
-			post_process(inverseShader);
+			post_process(grainShader);
 			break;
 		case 6:
-			post_process(hdrShader);
+			post_process(grayShader);
 			break;
 		case 7:
-			post_process(vignetteShader);
+			post_process(inverseShader);
 			break;
 		case 8:
-			post_process(gammaShader);
+			post_process(hdrShader);
 			break;
 		case 9:
-			post_process(foggyShader);
+			post_process(vignetteShader);
 			break;
 		case 10:
-			post_process(bloomShader);
+			post_process(gammaShader);
 			break;
-
 		default:
 			post_process(litShader);
 			break;
