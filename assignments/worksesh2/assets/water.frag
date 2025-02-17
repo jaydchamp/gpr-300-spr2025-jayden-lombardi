@@ -44,8 +44,10 @@ void main()
 	vec3 smp2 = texture(wave_spec, spec_uv + vec2(1.0, 1.0) * time).rgb;
 	vec3 spec = smp1 + smp2;
 
-//	float brightness = dot(spec, vec3(0.299, 0.587, 0.114));
-//	if(brightness <= brightness_lower_cutoff || brightness >= brightness_upper_cutoff)
+	float brightness = dot(spec, vec3(0.299, 0.587, 0.114));
+	float fresnelEffect  = dot(normalize(to_camera), vec3(0.0, 1.0, 0.0));
+
+//	if(brightness <= brightness_lower_cutoff || brightness > brightness_upper_cutoff)
 //	{
 		//not within brightness range
 		//this is what sunshine does
@@ -56,7 +58,6 @@ void main()
 		//use it!
 //	}
 
-	float fresnelEffect  = dot(normalize(to_camera), vec3(0.0, 1.0, 0.0));
 	vec3 finalColor = mix(spec, waterColor + vec3(albedo.a), fresnelEffect);
 	FragColor = vec4(finalColor, 1.0);
 }

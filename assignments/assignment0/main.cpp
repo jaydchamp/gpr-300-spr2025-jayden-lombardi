@@ -8,6 +8,7 @@
 #include <imgui.h>
 #include <imgui_impl_glfw.h>
 #include <imgui_impl_opengl3.h>
+#include <ew/procGen.h>
 
 #include <ew/shader.h>
 #include <ew/model.h>
@@ -19,6 +20,10 @@
 void framebufferSizeCallback(GLFWwindow* window, int width, int height);
 GLFWwindow* initWindow(const char* title, int width, int height);
 void drawUI();
+void initCamera();
+void definePipline();
+void render(ew::Shader shader, ew::Model model, GLuint texture);
+//#define glCheckError() glCheckError_(__FILE__, __LINE__)
 
 //Global state
 int screenWidth = 1080;
@@ -39,76 +44,31 @@ struct Material
 	float Shininess = 128;
 }material;
 
+struct Debug
+{
+	glm::vec3 color = glm::vec3{ 0.00f, 0.31f, 0.85f };
+}debug;
 
 int main() {
 	GLFWwindow* window = initWindow("Assignment 0", screenWidth, screenHeight);
-
 	ew::Shader newShader = ew::Shader("assets/lit.vert", "assets/lit.frag");	//our shader
 	ew::Model monkeyModel = ew::Model("assets/suzanne.obj");					//our model
-
 	GLuint brickTexture = ew::loadTexture("assets/brick_color.jpg");
 
-	camera.position = glm::vec3(0.0f, 0.0f, 5.0f);
-	camera.target = glm::vec3(0.0f, 0.0f, 0.0f);	//look at center of scene
-	camera.aspectRatio = (float)screenWidth / screenHeight;
-	camera.fov = 60.0f;								//vertical field of view in degrees
-
-	//pipeline definition
-	glEnable(GL_CULL_FACE);
-	glCullFace(GL_BACK);
-	glEnable(GL_DEPTH_TEST);
-	glClearColor(0.6f, 0.8f, 0.92f, 1.0f);
-	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+	initCamera();
+	definePipline();
 
 	glfwSetFramebufferSizeCallback(window, framebufferSizeCallback);
 
 	while (!glfwWindowShouldClose(window)) {
 		glfwPollEvents();
 
-		float time = (float)glfwGetTime();
-		deltaTime = time - prevFrameTime;
-		prevFrameTime = time;
-
-		//RENDER
-		glClearColor(0.6f,0.8f,0.92f,1.0f);
-		//clearing the color, clearing the depth buffer (how far something is)
-		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-
 		cameraController.move(window, &camera, deltaTime);
 
-		////bind brick texture to texture unit 0
-		//glActiveTexture(GL_TEXTURE0);
-		////bind my texture to the currently active texture
-		//glBindTexture(GL_TEXTURE_2D, brickTexture);
+		render(newShader, monkeyModel, brickTexture);
 
-		//above can be switched for:
-		glBindTextureUnit(0, brickTexture);
-
-		newShader.use();	//hides some shader code in here
-		//make "_MainTex" sampler2D sample from the 2D texture bound to unit 0
-		newShader.setInt("_MainTexture", 0);
-		newShader.setVec3("_EyePos", camera.position);
-
-		//added for material struct:
-		newShader.setFloat("_Material.Ka", material.Ka);
-		newShader.setFloat("_Material.Kd", material.Kd);
-		newShader.setFloat("_Material.Ks", material.Ks);
-		newShader.setFloat("_Material.Shininess", material.Shininess);
-
-		newShader.setMat4("_Model", glm::mat4(1.0f));
-		newShader.setMat4("_ViewProjection", camera.projectionMatrix() * camera.viewMatrix());
-
-		monkeyTransform.rotation = glm::rotate(monkeyTransform.rotation, deltaTime, glm::vec3(0.0f, 1.0f, 0.0f));
-
-		//combine translation, rotation, and scale into 4x4 matrix
-		newShader.setMat4("_Model", monkeyTransform.modelMatrix());
-
-		monkeyModel.draw();	//draw monkey model using current shader
-
-		//draw UI
 		drawUI();
 
-		//swap buffers (swap wahatever on screen, and whatever we write to)
 		glfwSwapBuffers(window);
 	}
 	printf("Shutting down...");
@@ -124,6 +84,59 @@ void resetCamera(ew::Camera* camera, ew::CameraController* controller)
 
 	//reset controller rotation
 	controller->yaw = controller->pitch = 0;
+}
+
+void initCamera()
+{
+	camera.position = glm::vec3(0.0f, 0.0f, 5.0f);
+	camera.target = glm::vec3(0.0f, 0.0f, 0.0f);	//look at center of scene
+	camera.aspectRatio = (float)screenWidth / screenHeight;
+	camera.fov = 60.0f;
+}
+
+void render(ew::Shader shader, ew::Model model, GLuint texture)
+{
+	float time = (float)glfwGetTime();
+	deltaTime = time - prevFrameTime;
+	prevFrameTime = time;
+
+	glClearColor(0.6f, 0.8f, 0.92f, 1.0f);
+	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+	glEnable(GL_CULL_FACE);
+	glCullFace(GL_BACK);
+	glEnable(GL_DEPTH_TEST);
+
+	shader.use();
+
+	glActiveTexture(GL_TEXTURE0);
+	glBindTextureUnit(0, texture);
+
+	shader.setInt("_MainTexture", 0);
+	shader.setVec3("_EyePos", camera.position);
+
+	shader.setFloat("_Material.Ka", material.Ka);
+	shader.setFloat("_Material.Kd", material.Kd);
+	shader.setFloat("_Material.Ks", material.Ks);
+	shader.setFloat("_Material.Shininess", material.Shininess);
+
+	shader.setMat4("_Model", glm::mat4(1.0f));
+	shader.setMat4("_ViewProjection", camera.projectionMatrix() * camera.viewMatrix());
+
+	monkeyTransform.rotation = glm::rotate(monkeyTransform.rotation, deltaTime, glm::vec3(0.0f, 1.0f, 0.0f));
+	shader.setMat4("_Model", monkeyTransform.modelMatrix());
+
+	model.draw();
+	//glCheckError();
+}
+
+void definePipline()
+{
+	//pipeline definition
+	glEnable(GL_CULL_FACE);
+	glCullFace(GL_BACK);
+	glEnable(GL_DEPTH_TEST);
+	glClearColor(0.6f, 0.8f, 0.92f, 1.0f);
+	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 }
 
 void drawUI() {
@@ -194,4 +207,3 @@ GLFWwindow* initWindow(const char* title, int width, int height) {
 
 	return window;
 }
-
