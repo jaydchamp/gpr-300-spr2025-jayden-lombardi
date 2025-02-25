@@ -25,7 +25,12 @@ out vec4 FragColor;
 //uniforms
 uniform sampler2D shadow_map;
 uniform vec3 camera_pos;
-uniform vec3 light_pos;
+
+uniform float bias;
+uniform float maxBias;
+uniform float minBias;
+uniform bool use_pcf;
+
 uniform Material _Material;
 uniform Light _Light;
 uniform Ambient _Ambient;
@@ -36,18 +41,44 @@ in vec4 vs_frag_light_position;
 in vec3 vs_normal;
 in vec2 vs_texcoord;
 
-float shadow_calculation(vec4 frag_pos_lightspace)
+float shadow_calculation(vec4 frag_pos_lightspace, vec3 normal)
 {
+	float shadow = 0.0;
+	vec3 lightDir = normalize(_Light.positon - vs_frag_world_position);
+	//float bias = max(maxBias * (1.0 - dot(normal, lightDir)), minBias);
+
 	//perspective divide for normalized device coords
 	//transform to range [0, 1] for sampling
 	vec3 proj_coords = frag_pos_lightspace.xyz / frag_pos_lightspace.w;
 	proj_coords = (proj_coords * 0.5) + 0.5;
 
-	float closest_depth = texture(shadow_map, proj_coords.xy).r;	//aka light_depth
-	float current_depth = proj_coords.z;							//aka camera_depth
+	if(use_pcf)
+	{
+		for(int x = -1; x <= 1; ++x)
+		{
+			for(int y = -1; y <= 1; ++y)
+			{
+				vec2 texelSize = 1.0 / textureSize(shadow_map, 0);
+				float closest_depth = texture(shadow_map, proj_coords.xy + vec2(x, y) * texelSize).r;	//aka light_depth
 
-	float shadow = (current_depth > closest_depth) ? 1.0 : 0.0;
+				float current_depth = proj_coords.z;							//aka camera_depth
+				shadow += ((current_depth - bias) > closest_depth) ? 1.0 : 0.0;
 
+				shadow /= 9.0f;
+			}
+		}
+	}
+	else
+	{
+		float closest_depth = texture(shadow_map, proj_coords.xy).r;	//aka light_depth
+		float current_depth = proj_coords.z;							//aka camera_depth
+		shadow += ((current_depth - bias) > closest_depth) ? 1.0 : 0.0;
+	}
+
+//	if(proj_coords.z > 1.0)
+//	{
+//		shadow = 0.0f;
+//	}
 	return shadow;
 }
 
@@ -73,7 +104,7 @@ void main()
 {
 	vec3 normal = normalize(vs_normal);
 	vec3 lighting = blinnphong(normal, vs_frag_world_position);
-	float shadow = shadow_calculation(vs_frag_light_position);
+	float shadow = shadow_calculation(vs_frag_light_position, normal);
 
 	lighting *= (1.0 - shadow);
 	lighting += vec3(1.0) * _Material.ambient;

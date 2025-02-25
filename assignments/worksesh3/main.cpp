@@ -28,7 +28,7 @@ GLFWwindow* initWindow(const char* title, int width, int height);
 void drawUI();
 void initCamera();
 void definePipline();
-void render(ew::Shader shader, ew::Model model, GLuint texture);
+void render(ew::Shader shader, ew::Shader shadowPass, ew::Model model, GLuint texture);
 GLenum glCheckError_(const char* file, int line)
 {
 	GLenum errorCode;
@@ -62,7 +62,6 @@ ew::Transform monkeyTransform;
 ew::Mesh plane;
 static glm::vec4 light_orbit_radius = {2.0f, 2.0f, -2.0f, 1.0f};
 
-//for material controls:
 struct Material 
 {
 	glm::vec3 ambient = glm::vec3(1.0);
@@ -88,6 +87,8 @@ struct Debug
 {
 	glm::vec3 color = glm::vec3{ 0.00f, 0.31f, 0.85f };
 	float bias = 0.005f;
+	float max_bias = 0.05;
+	float min_bias = 0.005;
 	bool cull_front = false;
 	bool use_pcf = false;
 }debug;
@@ -128,12 +129,12 @@ struct DepthBuffer
 
 int main() 
 {
-	GLFWwindow* window = initWindow("Assignment 0", screenWidth, screenHeight);
+	GLFWwindow* window = initWindow("Assignment 2", screenWidth, screenHeight);
 
 	//shaders
 	ew::Shader newShader = ew::Shader("assets/lit.vert", "assets/lit.frag");
-	ew::Shader shadow_pass = ew::Shader("assets/shadow_pass.vert", "assets/shadow_pass.frag");
-	ew::Shader blinnPhongShader = ew::Shader("assets/blinnphong.vert", "assets/blinnphong.frag");
+	ew::Shader blinnPhongShader = ew::Shader("C:/Users/jLombardi/Desktop/PRGM/gpr-300-spr2025-jayden-lombardi/assignments/worksesh3/assets/blinPhong.vert", "C:/Users/jLombardi/Desktop/PRGM/gpr-300-spr2025-jayden-lombardi/assignments/worksesh3/assets/blinPhong.frag");
+	ew::Shader shadow_pass = ew::Shader("C:/Users/jLombardi/Desktop/PRGM/gpr-300-spr2025-jayden-lombardi/assignments/worksesh3/assets/shadow_pass.vert", "C:/Users/jLombardi/Desktop/PRGM/gpr-300-spr2025-jayden-lombardi/assignments/worksesh3/assets/shadow_pass.frag");
 
 	//model + texture
 	ew::Model monkeyModel = ew::Model("assets/suzanne.obj");			
@@ -156,9 +157,8 @@ int main()
 	while (!glfwWindowShouldClose(window)) {
 		glfwPollEvents();
 
-		render(blinnPhongShader, monkeyModel, brickTexture);
+		render(blinnPhongShader, shadow_pass, monkeyModel, brickTexture);
 		cameraController.move(window, &camera, deltaTime);
-
 
 		drawUI();
 
@@ -187,7 +187,7 @@ void initCamera()
 	camera.fov = 60.0f;
 }
 
-void render(ew::Shader shader, ew::Model model, GLuint texture)
+void render(ew::Shader shader, ew::Shader shadowPass, ew::Model model, GLuint texture)
 {
 	float time = (float)glfwGetTime();
 	deltaTime = time - prevFrameTime;
@@ -206,17 +206,19 @@ void render(ew::Shader shader, ew::Model model, GLuint texture)
 	{
 		glEnable(GL_CULL_FACE);
 		glEnable(GL_DEPTH_TEST);
+		glCullFace(GL_FRONT);
 
 		glViewport(0, 0, SHADOW_MAP_SIZE, SHADOW_MAP_SIZE);
 
 		//begin pass
 		glClear(GL_DEPTH_BUFFER_BIT);
 
-		shadow_pass.use();
-		shadow_pass.setMat4("_Model", glm::mat4(1.0f));
-		shadow_pass.setMat4("_LightViewProjection", light_view_proj);
+		shadowPass.use();
+		shadowPass.setMat4("_Model", glm::mat4(1.0f));
+		shadowPass.setMat4("_LightViewProjection", light_view_proj);
 		model.draw();
 
+		glCullFace(GL_BACK);
 		glCheckError();
 	}
 	glBindFramebuffer(GL_FRAMEBUFFER, 0);
@@ -245,7 +247,6 @@ void render(ew::Shader shader, ew::Model model, GLuint texture)
 		shader.setMat4("_CameraViewProjection", camera_view_proj);
 		shader.setMat4("_LightViewProjection", light_view_proj);
 		shader.setVec3("camera_pos", camera.position);
-		shader.setVec3("light_pos", light.position);
 
 		//material properties
 		shader.setVec3("_Material.ambient", material.ambient);
@@ -261,7 +262,10 @@ void render(ew::Shader shader, ew::Model model, GLuint texture)
 		shader.setVec3("_Light.color", light.color);
 		shader.setVec3("_Light.position", light.position);
 
+		//for shadowing
 		shader.setFloat("bias", debug.bias);
+		shader.setFloat("Min Bias", debug.min_bias);
+		shader.setFloat("Max Bias", debug.max_bias);
 		shader.setInt("use_pcf", debug.use_pcf);
 
 		model.draw();
@@ -294,15 +298,19 @@ void drawUI() {
 	}
 	if (ImGui::CollapsingHeader("Material")) 
 	{
-		//ImGui::SliderFloat("Ambient K", &material.ambient, 0.0f, 1.0f);
-		//ImGui::SliderFloat("Diffuse K", &material.diffuse, 0.0f, 1.0f);
-		//ImGui::SliderFloat("Specular K", &material.specular, 0.0f, 1.0f);
 		ImGui::SliderFloat("Shininess", &material.shininess, 2.0f, 1024.0f);
 	}
-
-	//ImGui::Separator("Depth Image");
-	ImGui::Separator(); //depth image
-	ImGui::Image((ImTextureID)(intptr_t)depthBuffer.depthTexture, ImVec2(256, 256));
+	ImGui::Separator(); 
+	if (ImGui::CollapsingHeader("Shadow Pass"))
+	{
+		ImGui::SliderFloat("Bias", &debug.bias, 0.0f, 0.1f);
+		ImGui::SliderFloat("Min Bias", &debug.min_bias, 0.0f, 0.1f);
+		ImGui::SliderFloat("Max Bias", &debug.max_bias, 0.0f, 0.1f);
+		ImGui::Checkbox("Culling Front", &debug.cull_front);
+		ImGui::Checkbox("Using PCF", &debug.use_pcf);
+		ImGui::Separator(); //depth image
+		ImGui::Image((ImTextureID)(intptr_t)depthBuffer.depthTexture, ImVec2(256, 256));
+	}
 
 	ImGui::End();
 
