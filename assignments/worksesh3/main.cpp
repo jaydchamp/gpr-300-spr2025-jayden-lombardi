@@ -74,6 +74,7 @@ struct Light
 {
 	glm::vec3 color;
 	glm::vec3 position;
+	bool rotating;
 }light;
 
 struct Ambient
@@ -133,8 +134,8 @@ int main()
 
 	//shaders
 	ew::Shader newShader = ew::Shader("assets/lit.vert", "assets/lit.frag");
-	ew::Shader blinnPhongShader = ew::Shader("C:/Users/jLombardi/Desktop/PRGM/gpr-300-spr2025-jayden-lombardi/assignments/worksesh3/assets/blinPhong.vert", "C:/Users/jLombardi/Desktop/PRGM/gpr-300-spr2025-jayden-lombardi/assignments/worksesh3/assets/blinPhong.frag");
-	ew::Shader shadow_pass = ew::Shader("C:/Users/jLombardi/Desktop/PRGM/gpr-300-spr2025-jayden-lombardi/assignments/worksesh3/assets/shadow_pass.vert", "C:/Users/jLombardi/Desktop/PRGM/gpr-300-spr2025-jayden-lombardi/assignments/worksesh3/assets/shadow_pass.frag");
+	ew::Shader blinnPhongShader = ew::Shader("D:/Users/Jayden/Desktop/MONT_REAL/Animations/gpr-300-spr2025-jayden-lombardi/assignments/worksesh3/assets/blinPhong.vert", "D:/Users/Jayden/Desktop/MONT_REAL/Animations/gpr-300-spr2025-jayden-lombardi/assignments/worksesh3/assets/blinPhong.frag");
+	ew::Shader shadow_pass = ew::Shader("D:/Users/Jayden/Desktop/MONT_REAL/Animations/gpr-300-spr2025-jayden-lombardi/assignments/worksesh3/assets/shadow_pass.vert", "D:/Users/Jayden/Desktop/MONT_REAL/Animations/gpr-300-spr2025-jayden-lombardi/assignments/worksesh3/assets/shadow_pass.frag");
 
 	//model + texture
 	ew::Model monkeyModel = ew::Model("assets/suzanne.obj");			
@@ -147,6 +148,7 @@ int main()
 
 	light.position = glm::vec3(1.0f);
 	light.color = glm::vec3(0.5f, 0.5f, 0.5f); 
+	light.rotating = true;
 	ambient.intensity = 1.0f;
 	ambient.color = glm::vec3(0.5f, 0.5f, 0.5f);
 
@@ -193,8 +195,11 @@ void render(ew::Shader shader, ew::Shader shadowPass, ew::Model model, GLuint te
 	deltaTime = time - prevFrameTime;
 	prevFrameTime = time;
 
-	const auto rym = glm::rotate((float)time/*.absolute*/, glm::vec3(0.0f, 1.0f, 0.0f));
-	light.position = rym * light_orbit_radius;
+	if (light.rotating)
+	{
+		const auto rym = glm::rotate((float)time/*.absolute*/, glm::vec3(0.0f, 1.0f, 0.0f));
+		light.position = rym * light_orbit_radius;
+	}
 
 	const auto camera_view_proj  = camera.projectionMatrix() * camera.viewMatrix();
 	const auto light_projection = glm::ortho(-10.0f, 10.0f, -10.0f, 10.0f, 0.1f, 100.0f);
@@ -310,6 +315,16 @@ void drawUI() {
 		ImGui::Checkbox("Using PCF", &debug.use_pcf);
 		ImGui::Separator(); //depth image
 		ImGui::Image((ImTextureID)(intptr_t)depthBuffer.depthTexture, ImVec2(256, 256));
+	}
+	ImGui::Separator();
+	if (ImGui::CollapsingHeader("Lighting"))
+	{
+		ImGui::ColorEdit3("Color", &light.color[0]);
+		ImGui::Checkbox("Light Rotation?", &light.rotating);
+		ImGui::SliderFloat("X Position", &light.position.x, -5, 5);
+		ImGui::SliderFloat("Y Position", &light.position.y, -5, 5);
+		ImGui::SliderFloat("Z Position", &light.position.z, -5, 5);
+
 	}
 
 	ImGui::End();
