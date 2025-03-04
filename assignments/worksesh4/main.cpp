@@ -120,11 +120,10 @@ struct FrameBuffer
 		glTexImage2D(GL_TEXTURE_2D, 0, GL_DEPTH24_STENCIL8, 800, 600, 0, GL_DEPTH_STENCIL, GL_UNSIGNED_INT_24_8, nullptr);
 		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
 		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
-		glFramebufferTexture2D(GL_FRAMEBUFFER, GL_DEPTH_STENCIL_ATTACHMENT, GL_TEXTURE_2D, depthTexture, 0);
 
 		glBindFramebuffer(GL_FRAMEBUFFER, fbo);
 		{
-			//glFramebufferTexture2D(GL_FRAMEBUFFER, GL_DEPTH_STENCIL_ATTACHMENT, GL_TEXTURE_2D, depthTexture, 0);
+			glFramebufferTexture2D(GL_FRAMEBUFFER, GL_DEPTH_STENCIL_ATTACHMENT, GL_TEXTURE_2D, depthTexture, 0);
 			glDrawBuffer(GL_NONE);
 			glReadBuffer(GL_NONE);
 
@@ -182,8 +181,8 @@ int main() {
 	initCamera();
 	definePipline();
 
-	fullscreen_quad.Initalize(); 
-	frameBuffer.Initialize();
+	//fullscreen_quad.Initalize(); 
+	//frameBuffer.Initialize();
 
 	glfwSetFramebufferSizeCallback(window, framebufferSizeCallback);
 
@@ -202,7 +201,6 @@ int main() {
 	printf("Shutting down...");
 }
 
-//jayden added
 void resetCamera(ew::Camera* camera, ew::CameraController* controller)
 {
 	//reset position
@@ -240,9 +238,8 @@ void render(ew::Shader shader, ew::Model model, GLuint texture)
 	glBindTextureUnit(0, texture);
 
 	shader.setInt("_MainTexture", 0);
-
 	shader.setMat4("_Model", glm::mat4(1.0f));
-	shader.setMat4("_ViewProjection", camera.projectionMatrix() * camera.viewMatrix());
+	shader.setMat4("_ViewProj", camera.projectionMatrix() * camera.viewMatrix());
 
 	//monkeyTransform.rotation = glm::rotate(monkeyTransform.rotation, deltaTime, glm::vec3(0.0f, 1.0f, 0.0f));
 	shader.setMat4("_Model", monkeyTransform.modelMatrix());
