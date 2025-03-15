@@ -1,13 +1,21 @@
 #version 450
-in vec3 vs_position;
-in vec3 vs_normal;
-in vec2 vs_texcoord;
 
-out vec4 FragColor0;
-out vec4 FragColor1;
-out vec4 FragColor2;
+out vec4 FragColor;
 
-void main()
+in vec2 vs_textcoords;
+
+uniform sampler2D _Albedo;
+uniform sampler2D _LightingTex;
+uniform sampler2D _Lights;
+
+void main() 
 {
-	FragColor0 = vec4(vs_normal, 1.0);
+   vec3 objectColor = texture(_Albedo, vs_textcoords).rgb;
+   vec3 lightingColor = texture(_LightingTex, vs_textcoords).rgb;
+   vec4 lights = texture(_Lights, vs_textcoords).rgba;
+   
+   vec3 finalLighting = lightingColor * objectColor;
+   finalLighting = mix(finalLighting, lights.rgb, lights.a);
+
+   FragColor = vec4(finalLighting, 1.0);
 }
