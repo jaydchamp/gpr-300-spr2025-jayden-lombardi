@@ -33,14 +33,10 @@ void main()
 	vec3 toEye = normalize(_EyePos - fs_in.WorldPosition); //direction towards player's eyes
 	vec3 h = normalize(toLight + toEye); //blinn phong uses half angle
 	float specularFactor = pow(max(dot(normal, h), 0.0), _Material.Shininess);
-	//vec3 lightColor = (diffuseFactor + specularFactor) * _LightColor;
 	vec3 lightColor = (_Material.Kd * diffuseFactor + _Material.Ks * specularFactor) * _LightColor;
 
 	lightColor += _AmbientColor * _Material.Ka;
 
-	//amount of light diffusely reflecting off of the Surface
-	//vec3 diffuseColor = _LightColor * diffuseFactor;
-
 	vec3 objectColor = texture(_MainTexture, fs_in.TextCoord).rgb;
-	FragColor = vec4(objectColor * /*diffuseColor*/ lightColor, 1.0);
+	FragColor = vec4(objectColor * lightColor, 1.0);
 }

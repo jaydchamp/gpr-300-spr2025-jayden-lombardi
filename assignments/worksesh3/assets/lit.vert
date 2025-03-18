@@ -23,6 +23,3 @@ void main()
 	vs_out.TextCoord = vTextureCoord;
 	gl_Position = _ViewProjection * _Model * vec4(vPos, 1.0);
 }
-
-//	gl_Position = vec4(in_position.xy, 0.0, 1.0);
-//	vs_texcoord = in_texcoord;
