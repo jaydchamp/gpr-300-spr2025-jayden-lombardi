@@ -39,7 +39,6 @@ ew::CameraController cameraController;
 ew::Transform monkeyTransform;
 ew::Transform lightSphereTransform;
 ew::Mesh sphere; //light sphere
-ew::Mesh plane; //ground plane
 
 static float quad_vertices[] = {
 	// pos (x, y) texcoord (u, v)
@@ -85,18 +84,10 @@ struct Material
 	float shininess = 128;
 }materials;
 
-struct PointLight
-{
-	glm::vec3 position;
-	float radius;
-	glm::vec4 color;
-};
-const int MAX_POINT_LIGHTS = 64;
-PointLight pointLights[MAX_POINT_LIGHTS];
-
 struct FrameBuffer
 {
 	GLuint fbo;
+
 	GLuint color;
 	GLuint position;
 	GLuint normal;
@@ -104,6 +95,7 @@ struct FrameBuffer
 
 	GLuint lighting;
 	GLuint lights;
+
 
 	void Initialize()
 	{
@@ -135,7 +127,7 @@ struct FrameBuffer
 			glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
 			glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT2, GL_TEXTURE_2D, normal, 0);
 
-			const GLenum arr[3] = { GL_COLOR_ATTACHMENT0, GL_COLOR_ATTACHMENT1, GL_COLOR_ATTACHMENT2};
+			GLuint arr[3] = { GL_COLOR_ATTACHMENT0, GL_COLOR_ATTACHMENT1, GL_COLOR_ATTACHMENT2};
 			glDrawBuffers(3, arr);
 
 			//depth attachment
@@ -175,7 +167,6 @@ int main() {
 	fullscreen_quad.Initalize();
 
 	sphere.load(ew::createSphere(0.5f, 4));
-	plane.load(ew::createPlane(50.0f, 50.0f, 100));
 
 	while (!glfwWindowShouldClose(window)) {
 		glfwPollEvents();
@@ -234,9 +225,6 @@ void render(ew::Shader defShader, ew::Model model, GLuint texture)
 		defShader.setMat4("_ViewProj", camera.projectionMatrix() * camera.viewMatrix());
 		defShader.setInt("_MainTexture", 0);
 		//defShader.setInt("_NormalMap", 0);
-
-		defShader.setMat4("_Model", glm::translate(glm::vec3(15.0f, -1.5f, 0.0f)));
-		plane.draw();
 
 		for (auto i = 0; i <= 10; i++)
 		{
@@ -352,22 +340,14 @@ void drawUI() {
 	{
 		resetCamera(&camera, &cameraController);
 	}
-	ImGui::Separator();
-	//if (ImGui::CollapsingHeader("Lighting"))
-	//{
-	//	ImGui::SliderFloat("X Position", &point.pos.x, -5, 5);
-	//	ImGui::SliderFloat("Y Position", &light.pos.y, -5, 5);
-	//	ImGui::SliderFloat("Z Position", &light.pos.z, -5, 5);
-	//}
-	ImGui::End();
 
-	ImGui::Begin("GBuffers");
 	ImGui::Separator();
 	ImGui::Image((ImTextureID)(intptr_t)frameBuffer.color, ImVec2(300, 300));
 	ImGui::Separator();
 	ImGui::Image((ImTextureID)(intptr_t)frameBuffer.position, ImVec2(300, 300));
 	ImGui::Separator();
 	ImGui::Image((ImTextureID)(intptr_t)frameBuffer.normal, ImVec2(300, 300));
+
 	ImGui::End();
 
 	ImGui::Render();

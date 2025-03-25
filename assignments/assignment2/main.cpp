@@ -137,11 +137,11 @@ int main()
 
 	//had to make it this long to work on my computer for some reason
 	//please feel free to uncomment the versions undeneath
-	ew::Shader blinnPhongShader = ew::Shader("D:/Users/Jayden/Desktop/MONT_REAL/Animations/gpr-300-spr2025-jayden-lombardi/assignments/worksesh3/assets/blinPhong.vert", "D:/Users/Jayden/Desktop/MONT_REAL/Animations/gpr-300-spr2025-jayden-lombardi/assignments/worksesh3/assets/blinPhong.frag");
-	ew::Shader shadow_pass = ew::Shader("D:/Users/Jayden/Desktop/MONT_REAL/Animations/gpr-300-spr2025-jayden-lombardi/assignments/worksesh3/assets/shadow_pass.vert", "D:/Users/Jayden/Desktop/MONT_REAL/Animations/gpr-300-spr2025-jayden-lombardi/assignments/worksesh3/assets/shadow_pass.frag");
+	//ew::Shader blinnPhongShader = ew::Shader("D:/Users/Jayden/Desktop/MONT_REAL/Animations/gpr-300-spr2025-jayden-lombardi/assignments/worksesh3/assets/blinPhong.vert", "D:/Users/Jayden/Desktop/MONT_REAL/Animations/gpr-300-spr2025-jayden-lombardi/assignments/worksesh3/assets/blinPhong.frag");
+	//ew::Shader shadow_pass = ew::Shader("D:/Users/Jayden/Desktop/MONT_REAL/Animations/gpr-300-spr2025-jayden-lombardi/assignments/worksesh3/assets/shadow_pass.vert", "D:/Users/Jayden/Desktop/MONT_REAL/Animations/gpr-300-spr2025-jayden-lombardi/assignments/worksesh3/assets/shadow_pass.frag");
 	
-	//ew::Shader blinnPhongShader = ew::Shader("assets/blinPhong.vert", "assets/blinPhong.frag");
-	//ew::Shader shadow_pass = ew::Shader("assets/shadow_pass.vert", "assets/shadow_pass.frag");
+	ew::Shader blinnPhongShader = ew::Shader("assets/blinPhong.vert", "assets/blinPhong.frag");
+	ew::Shader shadow_pass = ew::Shader("assets/shadow_pass.vert", "assets/shadow_pass.frag");
 
 	//model + texture
 	ew::Model monkeyModel = ew::Model("assets/suzanne.obj");			
