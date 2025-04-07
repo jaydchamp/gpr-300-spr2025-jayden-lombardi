@@ -269,12 +269,12 @@ int main() {
 	GLFWwindow* window = initWindow("Assignment4", screenWidth, screenHeight);
 	glfwSetFramebufferSizeCallback(window, framebufferSizeCallback);
 
-	ew::Shader depthShader = ew::Shader("D:/Users/Jayden/Desktop/MONT_REAL/Animations/gpr-300-spr2025-jayden-lombardi/assignments/assignment3/assets/depth.vert", "D:/Users/Jayden/Desktop/MONT_REAL/Animations/gpr-300-spr2025-jayden-lombardi/assignments/assignment3/assets/depth.frag"); 
-	ew::Shader gBuffShader = ew::Shader("D:/Users/Jayden/Desktop/MONT_REAL/Animations/gpr-300-spr2025-jayden-lombardi/assignments/assignment3/assets/geoPass.vert", "D:/Users/Jayden/Desktop/MONT_REAL/Animations/gpr-300-spr2025-jayden-lombardi/assignments/assignment3/assets/geoPass.frag");
-	ew::Shader deferredShader = ew::Shader("D:/Users/Jayden/Desktop/MONT_REAL/Animations/gpr-300-spr2025-jayden-lombardi/assignments/assignment3/assets/deferredLit.vert", "D:/Users/Jayden/Desktop/MONT_REAL/Animations/gpr-300-spr2025-jayden-lombardi/assignments/assignment3/assets/deferredLit.frag");
-	//ew::Shader depthShader = ew::Shader("newassets/depth.vert", "newassets/depth.frag");
-	//ew::Shader gBuffShader = ew::Shader("newassets/geoPass.vert", "newassets/geoPass.frag");
-	//ew::Shader deferredShader = ew::Shader("newassets/deferredLit.vert", "newassets/deferredLit.frag");
+	//ew::Shader depthShader = ew::Shader("D:/Users/Jayden/Desktop/MONT_REAL/Animations/gpr-300-spr2025-jayden-lombardi/assignments/assignment3/assets/depth.vert", "D:/Users/Jayden/Desktop/MONT_REAL/Animations/gpr-300-spr2025-jayden-lombardi/assignments/assignment3/assets/depth.frag"); 
+	//ew::Shader gBuffShader = ew::Shader("D:/Users/Jayden/Desktop/MONT_REAL/Animations/gpr-300-spr2025-jayden-lombardi/assignments/assignment3/assets/geoPass.vert", "D:/Users/Jayden/Desktop/MONT_REAL/Animations/gpr-300-spr2025-jayden-lombardi/assignments/assignment3/assets/geoPass.frag");
+	//ew::Shader deferredShader = ew::Shader("D:/Users/Jayden/Desktop/MONT_REAL/Animations/gpr-300-spr2025-jayden-lombardi/assignments/assignment3/assets/deferredLit.vert", "D:/Users/Jayden/Desktop/MONT_REAL/Animations/gpr-300-spr2025-jayden-lombardi/assignments/assignment3/assets/deferredLit.frag");
+	ew::Shader depthShader = ew::Shader("assets/depth.vert", "assets/depth.frag");
+	ew::Shader gBuffShader = ew::Shader("assets/geoPass.vert", "assets/geoPass.frag");
+	ew::Shader deferredShader = ew::Shader("assets/deferredLit.vert", "assets/deferredLit.frag");
 
 	ew::Model monkeyModel = ew::Model("assets/suzanne.obj");		
 	GLuint brickTexture = ew::loadTexture("assets/brick_color.jpg");
