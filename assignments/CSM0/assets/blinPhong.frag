@@ -14,11 +14,6 @@ struct Light
 	vec3 positon;
 	bool rotating;
 };
-struct Ambient
-{
-	vec3 color;
-	float intensity;
-};
 
 //outs
 out vec4 FragColor; 
@@ -34,7 +29,6 @@ uniform bool use_pcf;
 
 uniform Material _Material;
 uniform Light _Light;
-//uniform Ambient _Ambient;
 
 //ins
 in vec3 vs_frag_world_position;

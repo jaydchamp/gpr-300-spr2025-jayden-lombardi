@@ -28,7 +28,10 @@ GLFWwindow* initWindow(const char* title, int width, int height);
 void drawUI();
 void initCamera();
 void definePipline();
-void render(ew::Shader shader, ew::Shader shadowPass, ew::Model model, GLuint texture);
+void initDetails();
+glm::mat4 calculateLightSpaceMatrix();
+void render(ew::Shader shader, ew::Model model, GLuint texture, float time);
+void shadowPass(ew::Shader shadowPass, ew::Model model, float time);
 GLenum glCheckError_(const char* file, int line)
 {
 	GLenum errorCode;
@@ -90,12 +93,19 @@ struct DepthBuffer
 {
 	GLuint fbo;
 	GLuint depthTexture;
+
+	float width;
+	float height;
 	
 	void Initialize(float dWidth, float dHeight)
 	{
 		glGenFramebuffers(1, &fbo);
 		glBindFramebuffer(GL_FRAMEBUFFER, fbo);
 		{
+			width = dWidth;
+			height = dHeight;
+
+			//depth attachment
 			glGenTextures(1, &depthTexture);
 			glBindTexture(GL_TEXTURE_2D, depthTexture);
 			glTexImage2D(GL_TEXTURE_2D, 0, GL_DEPTH24_STENCIL8, dWidth, dHeight, 0, GL_DEPTH_STENCIL, GL_UNSIGNED_INT_24_8, nullptr);
@@ -104,8 +114,8 @@ struct DepthBuffer
 			glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
 			glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
 			glFramebufferTexture2D(GL_FRAMEBUFFER, GL_DEPTH_STENCIL_ATTACHMENT, GL_TEXTURE_2D, depthTexture, 0);
-			glDrawBuffer(GL_NONE);
-			glReadBuffer(GL_NONE);
+			//glDrawBuffer(GL_NONE);
+			//glReadBuffer(GL_NONE);
 
 			GLenum fboStatus = glCheckFramebufferStatus(GL_FRAMEBUFFER);
 			if (fboStatus != GL_FRAMEBUFFER_COMPLETE)
@@ -123,6 +133,7 @@ int main()
 	GLFWwindow* window = initWindow("Cascaded Shadow Maps", screenWidth, screenHeight);
 	glfwSetFramebufferSizeCallback(window, framebufferSizeCallback);
 
+	//shader
 	ew::Shader blinnPhongShader = ew::Shader("assets/blinPhong.vert", "assets/blinPhong.frag");
 	ew::Shader shadow_pass = ew::Shader("assets/shadow_pass.vert", "assets/shadow_pass.frag");
 
@@ -130,21 +141,23 @@ int main()
 	ew::Model monkeyModel = ew::Model("assets/suzanne.obj");			
 	GLuint brickTexture = ew::loadTexture("assets/brick_color.jpg");
 
+	//init stuff
 	initCamera();
 	definePipline();
-
-	plane.load(ew::createPlane(50.0f, 50.0f, 100));
-
-	light.position = glm::vec3(1.0f);
-	light.color = glm::vec3(0.5f, 0.5f, 0.5f); 
-	light.rotating = true;
+	initDetails();
 
 	depthBuffer.Initialize(screenWidth, screenHeight);
 
 	while (!glfwWindowShouldClose(window)) {
 		glfwPollEvents();
 
-		render(blinnPhongShader, shadow_pass, monkeyModel, brickTexture);
+		float time = (float)glfwGetTime();
+		deltaTime = time - prevFrameTime;
+		prevFrameTime = time;
+
+		shadowPass(shadow_pass, monkeyModel, time);
+
+		render(blinnPhongShader, monkeyModel, brickTexture, time);
 
 		cameraController.move(window, &camera, deltaTime);
 
@@ -174,22 +187,72 @@ void initCamera()
 	camera.fov = 60.0f;
 }
 
-void render(ew::Shader shader, ew::Shader shadowPass, ew::Model model, GLuint texture)
+void initDetails()
 {
-	float time = (float)glfwGetTime();
-	deltaTime = time - prevFrameTime;
-	prevFrameTime = time;
+	plane.load(ew::createPlane(50.0f, 50.0f, 100));
+	light.position = glm::vec3(1.0f);
+	light.color = glm::vec3(0.5f, 0.5f, 0.5f);
+	light.rotating = true;
+}
 
+void render(ew::Shader shader, ew::Model model, GLuint texture, float time)
+{
+	const auto camera_view_proj = camera.projectionMatrix() * camera.viewMatrix();
+
+	//render lighting
+	glViewport(0, 0, screenWidth, screenHeight);
+	 
+	glClearColor(0.6f, 0.8f, 0.92f, 1.0f);
+	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+
+	glEnable(GL_CULL_FACE);
+	glCullFace(GL_BACK);
+	glEnable(GL_DEPTH_TEST);
+
+	glActiveTexture(GL_TEXTURE0);
+	glBindTexture(GL_TEXTURE_2D, depthBuffer.depthTexture);
+
+	shader.use();
+
+	//samplers
+	shader.setInt("shadow_map", 0);
+
+	//scene matrices
+	shader.setMat4("_Model", glm::mat4(1.0f));
+	shader.setMat4("_CameraViewProjection", camera_view_proj);
+	shader.setMat4("_LightViewProjection", calculateLightSpaceMatrix());
+	shader.setVec3("camera_pos", camera.position);
+
+	//material properties
+	shader.setVec3("_Material.ambient", material.ambient);
+	shader.setVec3("_Material.diffuse", material.diffuse);
+	shader.setVec3("_Material.specular", material.specular);
+	shader.setFloat("_Material.shininess", material.shininess);
+
+	//point light
+	shader.setVec3("_Light.color", light.color);
+	shader.setVec3("_Light.position", light.position);
+
+	//for shadowing
+	shader.setFloat("bias", debug.bias);
+	shader.setFloat("Min Bias", debug.min_bias);
+	shader.setFloat("Max Bias", debug.max_bias);
+	shader.setInt("use_pcf", debug.use_pcf);
+
+	model.draw();
+
+	shader.setMat4("_Model", glm::translate(glm::vec3(0.0f, -2.0f, 0.0f)));
+
+	plane.draw();
+}
+
+void shadowPass(ew::Shader shadowPass, ew::Model model, float time)
+{
 	if (light.rotating)
 	{
-		const auto rym = glm::rotate((float)time/*.absolute*/, glm::vec3(0.0f, 1.0f, 0.0f));
+		const auto rym = glm::rotate((float)time, glm::vec3(0.0f, 1.0f, 0.0f));
 		light.position = rym * light_orbit_radius;
 	}
-
-	const auto camera_view_proj  = camera.projectionMatrix() * camera.viewMatrix();
-	const auto light_projection = glm::ortho(-10.0f, 10.0f, -10.0f, 10.0f, 0.1f, 100.0f);
-	const auto light_view = glm::lookAt(light.position, glm::vec3(0.0f), glm::vec3(0.0f, -1.0f, 0.0f));
-	const auto light_view_proj = light_projection * light_view;
 
 	//shadow pass
 	glBindFramebuffer(GL_FRAMEBUFFER, depthBuffer.fbo);
@@ -205,61 +268,21 @@ void render(ew::Shader shader, ew::Shader shadowPass, ew::Model model, GLuint te
 
 		shadowPass.use();
 		shadowPass.setMat4("_Model", glm::mat4(1.0f));
-		shadowPass.setMat4("_LightViewProjection", light_view_proj);
+		shadowPass.setMat4("_LightViewProjection", calculateLightSpaceMatrix());
 		model.draw();
 
 		glCullFace(GL_BACK);
 		glCheckError();
 	}
 	glBindFramebuffer(GL_FRAMEBUFFER, 0);
+}
 
-	//render lighting
-	{
-		glViewport(0, 0, screenWidth, screenHeight);
-		 
-		glClearColor(0.6f, 0.8f, 0.92f, 1.0f);
-		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-
-		glEnable(GL_CULL_FACE);
-		glCullFace(GL_BACK);
-		glEnable(GL_DEPTH_TEST);
-
-		glActiveTexture(GL_TEXTURE0);
-		glBindTexture(GL_TEXTURE_2D, depthBuffer.depthTexture);
-
-		shader.use();
-
-		//samplers
-		shader.setInt("shadow_map", 0);
-
-		//scene matrices
-		shader.setMat4("_Model", glm::mat4(1.0f));
-		shader.setMat4("_CameraViewProjection", camera_view_proj);
-		shader.setMat4("_LightViewProjection", light_view_proj);
-		shader.setVec3("camera_pos", camera.position);
-
-		//material properties
-		shader.setVec3("_Material.ambient", material.ambient);
-		shader.setVec3("_Material.diffuse", material.diffuse);
-		shader.setVec3("_Material.specular", material.specular);
-		shader.setFloat("_Material.shininess", material.shininess);
-
-		//point light
-		shader.setVec3("_Light.color", light.color);
-		shader.setVec3("_Light.position", light.position);
-
-		//for shadowing
-		shader.setFloat("bias", debug.bias);
-		shader.setFloat("Min Bias", debug.min_bias);
-		shader.setFloat("Max Bias", debug.max_bias);
-		shader.setInt("use_pcf", debug.use_pcf);
-
-		model.draw();
-
-		shader.setMat4("_Model", glm::translate(glm::vec3(0.0f, -2.0f, 0.0f)));
-
-		plane.draw();
-	}
+glm::mat4 calculateLightSpaceMatrix()
+{
+	//const auto camera_view_proj = camera.projectionMatrix() * camera.viewMatrix();
+	const auto light_projection = glm::ortho(-10.0f, 10.0f, -10.0f, 10.0f, 0.1f, 100.0f);
+	const auto light_view = glm::lookAt(light.position, glm::vec3(0.0f), glm::vec3(0.0f, -1.0f, 0.0f));
+	return light_projection * light_view;
 }
 
 void definePipline()
@@ -282,8 +305,12 @@ void drawUI() {
 	{
 		resetCamera(&camera, &cameraController);
 	}
-	if (ImGui::CollapsingHeader("Material")) 
+	ImGui::Separator();
+	if (ImGui::CollapsingHeader("Material"))
 	{
+		ImGui::SliderFloat3("Ambient K", (float*)&material.ambient, 0.0f, 1.0f);
+		ImGui::SliderFloat3("Diffuse K", (float*)&material.diffuse, 0.0f, 1.0f);
+		ImGui::SliderFloat3("Specular K", (float*)&material.specular, 0.0f, 1.0f);
 		ImGui::SliderFloat("Shininess", &material.shininess, 2.0f, 1024.0f);
 	}
 	ImGui::Separator(); 
@@ -305,9 +332,7 @@ void drawUI() {
 		ImGui::SliderFloat("X Position", &light.position.x, -5, 5);
 		ImGui::SliderFloat("Y Position", &light.position.y, -5, 5);
 		ImGui::SliderFloat("Z Position", &light.position.z, -5, 5);
-
 	}
-
 	ImGui::End();
 
 	ImGui::Render();
